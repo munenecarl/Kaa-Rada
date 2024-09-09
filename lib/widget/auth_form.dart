@@ -5,7 +5,7 @@ class AuthForm extends StatefulWidget {
   final Function(String, String) onSubmit;
   final String buttonText;
 
-  AuthForm({required this.onSubmit, required this.buttonText});
+  const AuthForm({super.key, required this.onSubmit, required this.buttonText});
 
   @override
   _AuthFormState createState() => _AuthFormState();
@@ -28,12 +28,12 @@ class _AuthFormState extends State<AuthForm> {
     return Form(
       key: _formKey,
       child: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextFormField(
-              decoration: InputDecoration(labelText: 'Email'),
+              decoration: const InputDecoration(labelText: 'Email'),
               keyboardType: TextInputType.emailAddress,
               validator: (value) {
                 if (value == null || value.isEmpty || !value.contains('@')) {
@@ -43,9 +43,9 @@ class _AuthFormState extends State<AuthForm> {
               },
               onSaved: (value) => _email = value!,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextFormField(
-              decoration: InputDecoration(labelText: 'Password'),
+              decoration: const InputDecoration(labelText: 'Password'),
               obscureText: true,
               validator: (value) {
                 if (value == null || value.isEmpty || value.length < 6) {
@@ -55,7 +55,7 @@ class _AuthFormState extends State<AuthForm> {
               },
               onSaved: (value) => _password = value!,
             ),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _submit,
               child: Text(widget.buttonText),
