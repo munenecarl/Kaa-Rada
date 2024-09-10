@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'bloc/auth/auth_bloc.dart';
+import 'bloc/auth/auth_state.dart' as app_auth_state;
 import 'pages/login_page.dart';
 import 'pages/feed_page.dart';
 import 'services/supabase_auth_service.dart';
@@ -45,10 +46,9 @@ class MyApp extends StatelessWidget {
 class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<AuthState>(
-      stream: BlocProvider.of<AuthBloc>(context).stream,
-      builder: (context, snapshot) {
-        if (snapshot.data is AuthSuccess) {
+    return BlocBuilder<AuthBloc, app_auth_state.AuthState>(
+      builder: (context, state) {
+        if (state is app_auth_state.AuthSuccess) {
           return FeedPage();
         } else {
           return LoginPage();
