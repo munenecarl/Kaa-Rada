@@ -4,16 +4,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'bloc/auth/auth_bloc.dart';
 import 'pages/login_page.dart';
+import 'pages/feed_page.dart';
 import 'services/supabase_auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   try {
-    // Load the .env file
     await dotenv.load(fileName: ".env");
-
-    // Initialize Supabase
     await Supabase.initialize(
       url: dotenv.env['SUPABASE_URL'] ?? '',
       anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
@@ -35,19 +32,34 @@ class MyApp extends StatelessWidget {
         SupabaseAuthService(Supabase.instance.client),
       ),
       child: MaterialApp(
-        title: 'Kaa Rada Login',
+        title: 'Kaa Rada',
         theme: ThemeData(
           primarySwatch: Colors.blue,
         ),
-        home: LoginPage(),
+        home: AuthWrapper(),
       ),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AuthState>(
+      stream: BlocProvider.of<AuthBloc>(context).stream,
+      builder: (context, snapshot) {
+        if (snapshot.data is AuthSuccess) {
+          return FeedPage();
+        } else {
+          return LoginPage();
+        }
+      },
     );
   }
 }
 
 class ErrorApp extends StatelessWidget {
   final String error;
-
   const ErrorApp({Key? key, required this.error}) : super(key: key);
 
   @override
