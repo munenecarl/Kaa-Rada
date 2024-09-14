@@ -14,3 +14,5 @@ class SignUpSubmitted extends AuthEvent {
 
   SignUpSubmitted({required this.email, required this.password});
 }
+
+class CheckAuthStatus extends AuthEvent {}

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'bloc/auth/auth_bloc.dart';
+import 'bloc/auth/auth_event.dart';
 import 'bloc/auth/auth_state.dart' as app_auth_state;
 import 'pages/login_page.dart';
 import 'pages/feed_page.dart';
@@ -29,9 +30,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => AuthBloc(
-        SupabaseAuthService(Supabase.instance.client),
-      ),
+      create: (context) {
+        final authBloc = AuthBloc(
+          SupabaseAuthService(Supabase.instance.client),
+        );
+        authBloc.add(CheckAuthStatus()); // Check auth status when app starts
+        return authBloc;
+      },
       child: MaterialApp(
         title: 'Kaa Rada',
         theme: ThemeData(
@@ -42,6 +47,8 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
+// ... rest of the file remains the same
 
 class AuthWrapper extends StatelessWidget {
   @override
