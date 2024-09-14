@@ -10,6 +10,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<LoginSubmitted>(_onLoginSubmitted);
     on<SignUpSubmitted>(_onSignUpSubmitted);
     on<CheckAuthStatus>(_onCheckAuthStatus);
+    on<LogoutSubmitted>(
+        _onLogoutSubmitted); // Register the LogoutSubmitted event
   }
 
   void _onLoginSubmitted(LoginSubmitted event, Emitter<AuthState> emit) async {
@@ -43,6 +45,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       } else {
         emit(AuthInitial());
       }
+    } catch (error) {
+      emit(AuthFailure(error.toString()));
+    }
+  }
+
+  void _onLogoutSubmitted(
+      LogoutSubmitted event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+    try {
+      await _authService.logOut();
+      emit(AuthInitial());
     } catch (error) {
       emit(AuthFailure(error.toString()));
     }

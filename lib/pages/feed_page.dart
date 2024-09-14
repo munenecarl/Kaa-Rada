@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'settings_page.dart';
 
 class FeedPage extends StatelessWidget {
   const FeedPage({Key? key}) : super(key: key);
@@ -12,7 +13,9 @@ class FeedPage extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.settings),
             onPressed: () {
-              // TODO: Implement settings functionality
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => SettingsPage()),
+              );
             },
           ),
         ],
@@ -41,7 +44,19 @@ class FeedPage extends StatelessWidget {
         ],
         currentIndex: 0, // Set to 0 for Feed
         onTap: (index) {
-          // TODO: Implement navigation
+          switch (index) {
+            case 0:
+              // Already on Feed page, no action needed
+              break;
+            case 1:
+              // TODO: Implement navigation to Post page
+              break;
+            case 2:
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => SettingsPage()),
+              );
+              break;
+          }
         },
       ),
     );
@@ -53,17 +68,25 @@ class FeedPage extends StatelessWidget {
       child: Column(
         children: [
           Image.asset(
-              'images/image_placeholder.png'), // Replace with actual image
+            'images/image_placeholder.png', // Replace with actual image
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: 200, // Adjust height as needed
+          ),
           Padding(
             padding: EdgeInsets.all(8.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('News Headline',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  'News Headline',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
                 SizedBox(height: 8),
-                Text('News content preview...', style: TextStyle(fontSize: 14)),
+                Text(
+                  'News content preview...',
+                  style: TextStyle(fontSize: 14),
+                ),
                 SizedBox(height: 8),
                 ElevatedButton(
                   child: Text('Read more'),
