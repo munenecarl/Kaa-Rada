@@ -1,8 +1,60 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'settings_page.dart';
 
-class FeedPage extends StatelessWidget {
+class FeedPage extends StatefulWidget {
   const FeedPage({Key? key}) : super(key: key);
+
+  @override
+  _FeedPageState createState() => _FeedPageState();
+}
+
+class _FeedPageState extends State<FeedPage> {
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(source: source);
+      if (pickedFile != null) {
+        // TODO: Handle the captured photo (e.g., upload to server, add to feed)
+        print('Photo captured: ${pickedFile.path}');
+      }
+    } catch (e) {
+      print('Error picking image: $e');
+    }
+  }
+
+  void _showImageSourceDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Choose Image Source'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                GestureDetector(
+                  child: Text('Gallery'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _pickImage(ImageSource.gallery);
+                  },
+                ),
+                Padding(padding: EdgeInsets.all(8.0)),
+                GestureDetector(
+                  child: Text('Camera'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _pickImage(ImageSource.camera);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +79,12 @@ class FeedPage extends StatelessWidget {
           // Add more news items as needed
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showImageSourceDialog,
+        child: Icon(Icons.camera_alt),
+        tooltip: 'Take a photo of your meal',
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -49,7 +107,7 @@ class FeedPage extends StatelessWidget {
               // Already on Feed page, no action needed
               break;
             case 1:
-              // TODO: Implement navigation to Post page
+              _showImageSourceDialog();
               break;
             case 2:
               Navigator.of(context).push(
