@@ -6,6 +6,7 @@ import '../bloc/auth/auth_state.dart';
 import '../widget/auth_form.dart';
 import 'login_page.dart';
 import 'feed_page.dart';
+import '../pages/dietary_goal_page.dart';
 
 class SignUpPage extends StatelessWidget {
   const SignUpPage({super.key});
@@ -18,7 +19,7 @@ class SignUpPage extends StatelessWidget {
         listener: (context, state) {
           if (state is AuthSuccess) {
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => FeedPage()),
+              MaterialPageRoute(builder: (_) => DietaryGoalsPage()),
             );
           } else if (state is AuthFailure) {
             ScaffoldMessenger.of(context).showSnackBar(
