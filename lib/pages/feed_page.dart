@@ -5,6 +5,8 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import 'dart:io';
 import 'settings_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FeedPage extends StatefulWidget {
   const FeedPage({Key? key}) : super(key: key);
@@ -18,6 +20,15 @@ class _FeedPageState extends State<FeedPage> {
   Interpreter? _interpreter;
   String _classificationResult = '';
   bool _isModelLoading = true;
+  final supabase = Supabase.instance.client;
+  late SharedPreferences _prefs;
+  Map<String, int> _dailyNutrients = {
+    'calories': 0,
+    'fat': 0,
+    'carbs': 0,
+    'proteins': 0,
+  };
+  late DateTime _lastResetDate;
 
   // Adjust these values to match your model's expected input
   final int inputSize = 224;
@@ -28,6 +39,7 @@ class _FeedPageState extends State<FeedPage> {
   void initState() {
     super.initState();
     _loadModel();
+    _loadDailyNutrients();
   }
 
   Future<void> _loadModel() async {
@@ -40,6 +52,110 @@ class _FeedPageState extends State<FeedPage> {
       setState(() {
         _isModelLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadDailyNutrients() async {
+    _prefs = await SharedPreferences.getInstance();
+    
+    // Check if we need to reset
+    _lastResetDate = DateTime.parse(_prefs.getString('last_reset_date') ?? DateTime.now().toIso8601String());
+    if (_lastResetDate.day != DateTime.now().day) {
+      await _resetDailyNutrients();
+    } else {
+      setState(() {
+        _dailyNutrients = {
+          'calories': _prefs.getInt('daily_calories') ?? 0,
+          'fat': _prefs.getInt('daily_fat') ?? 0,
+          'carbs': _prefs.getInt('daily_carbs') ?? 0,
+          'proteins': _prefs.getInt('daily_proteins') ?? 0,
+        };
+      });
+    }
+  }
+
+  Future<void> _resetDailyNutrients() async {
+    await _prefs.remove('daily_calories');
+    await _prefs.remove('daily_fat');
+    await _prefs.remove('daily_carbs');
+    await _prefs.remove('daily_proteins');
+    
+    setState(() {
+      _dailyNutrients = {
+        'calories': 0,
+        'fat': 0,
+        'carbs': 0,
+        'proteins': 0,
+      };
+    });
+
+    // Update last reset date
+    _lastResetDate = DateTime.now();
+    await _prefs.setString('last_reset_date', _lastResetDate.toIso8601String());
+  }
+
+  Future<void> _updateDailyNutrients(Map<String, dynamic> nutritionInfo) async {
+    // Check if we need to reset before updating
+    if (_lastResetDate.day != DateTime.now().day) {
+      await _resetDailyNutrients();
+    }
+
+    setState(() {
+      _dailyNutrients['calories'] = (_dailyNutrients['calories']! + nutritionInfo['calories'] as int);
+      _dailyNutrients['fat'] = (_dailyNutrients['fat']! + nutritionInfo['fat'] as int);
+      _dailyNutrients['carbs'] = (_dailyNutrients['carbs']! + nutritionInfo['carbs'] as int);
+      _dailyNutrients['proteins'] = (_dailyNutrients['proteins']! + nutritionInfo['proteins'] as int);
+    });
+
+    await _prefs.setInt('daily_calories', _dailyNutrients['calories']!);
+    await _prefs.setInt('daily_fat', _dailyNutrients['fat']!);
+    await _prefs.setInt('daily_carbs', _dailyNutrients['carbs']!);
+    await _prefs.setInt('daily_proteins', _dailyNutrients['proteins']!);
+
+    // Update Supabase daily_nutrition table
+    await _updateSupabaseDailyNutrition();
+  }
+
+  Future<void> _updateSupabaseDailyNutrition() async {
+    final user = supabase.auth.currentUser;
+    if (user == null) {
+      print('No user logged in');
+      return;
+    }
+
+    try {
+      final today = DateTime.now().toIso8601String().split('T')[0]; // Get today's date in YYYY-MM-DD format
+
+      // Try to update an existing record for today
+      final updateResult = await supabase
+          .from('daily_nutrition')
+          .update({
+            'daily_calories': _dailyNutrients['calories'],
+            'daily_protein': _dailyNutrients['proteins'],
+            'daily_fat': _dailyNutrients['fat'],
+            'daily_carbs': _dailyNutrients['carbs'],
+          })
+          .match({'user_id': user.id, 'day': today})
+          .select();
+
+      // If no rows were affected, insert a new record
+      if (updateResult.isEmpty) {
+        await supabase
+            .from('daily_nutrition')
+            .insert({
+              'user_id': user.id,
+              'day': today,
+              'daily_calories': _dailyNutrients['calories'],
+              'daily_protein': _dailyNutrients['proteins'],
+              'daily_fat': _dailyNutrients['fat'],
+              'daily_carbs': _dailyNutrients['carbs'],
+            });
+      }
+
+      print('Daily nutrition updated in Supabase');
+    } catch (e) {
+      print('Error updating daily nutrition in Supabase: $e');
+      // Handle the error appropriately
     }
   }
 
@@ -121,15 +237,65 @@ class _FeedPageState extends State<FeedPage> {
         'bhajia'
       ]; // Example labels
 
+      final identifiedFood = labels[index];
+
       setState(() {
         _classificationResult =
-            'Classified as: ${labels[index]} with confidence: ${maxScore.toStringAsFixed(2)}';
+            'Classified as: $identifiedFood with confidence: ${maxScore.toStringAsFixed(2)}';
       });
       print(_classificationResult);
+
+      // Call the edge function to get nutrition info
+      await getFoodNutritionInfo(identifiedFood);
     } catch (e) {
       print('Error classifying image: $e');
       setState(() {
         _classificationResult = 'Error classifying image: $e';
+      });
+    }
+  }
+
+  Future<void> getFoodNutritionInfo(String foodName) async {
+    try {
+      final response = await supabase.functions.invoke(
+        'food_nutrition_info',
+        body: {'foodName': foodName},
+      );
+
+      if (response.status != 200) {
+        throw Exception('Failed to get nutrition info: ${response.data}');
+      }
+
+      final nutritionInfo = response.data['data'] as Map<String, dynamic>;
+
+      // Update daily nutrients
+      await _updateDailyNutrients(nutritionInfo);
+
+      // Display nutrition info in console
+      print('Nutrition info for $foodName:');
+      print('Calories: ${nutritionInfo['calories']}');
+      print('Fat: ${nutritionInfo['fat']}');
+      print('Carbs: ${nutritionInfo['carbs']}');
+      print('Proteins: ${nutritionInfo['proteins']}');
+
+      // Optionally, you can update the UI here as well
+      setState(() {
+        _classificationResult += '\n\nNutrition Info:' +
+            '\nCalories: ${nutritionInfo['calories']}' +
+            '\nFat: ${nutritionInfo['fat']}' +
+            '\nCarbs: ${nutritionInfo['carbs']}' +
+            '\nProteins: ${nutritionInfo['proteins']}';
+        _classificationResult += '\n\nDaily Totals:' +
+            '\nCalories so far: ${_dailyNutrients['calories']}' +
+            '\nFat so far: ${_dailyNutrients['fat']}' +
+            '\nCarbs so far: ${_dailyNutrients['carbs']}' +
+            '\nProteins so far: ${_dailyNutrients['proteins']}';
+      });
+    } catch (e) {
+      print('Error getting nutrition info: $e');
+      // Optionally update UI to show error
+      setState(() {
+        _classificationResult += '\n\nFailed to get nutrition info';
       });
     }
   }
@@ -201,6 +367,7 @@ class _FeedPageState extends State<FeedPage> {
       ),
       body: ListView(
         children: [
+          _buildDailyNutrientsCard(),
           _buildNewsItem(),
           _buildNewsItem(),
           // Add more news items as needed
@@ -291,6 +458,26 @@ class _FeedPageState extends State<FeedPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDailyNutrientsCard() {
+    return Card(
+      margin: EdgeInsets.all(8.0),
+      child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Daily Nutrient Totals', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text('Calories so far: ${_dailyNutrients['calories']}'),
+            Text('Fat so far: ${_dailyNutrients['fat']}'),
+            Text('Carbs so far: ${_dailyNutrients['carbs']}'),
+            Text('Proteins so far: ${_dailyNutrients['proteins']}'),
+          ],
+        ),
       ),
     );
   }
