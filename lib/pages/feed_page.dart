@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../bloc/nutrition/nutrition_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/nutrition/nutrition_state.dart';
+import 'recipe_page.dart';
 
 class FeedPage extends StatefulWidget {
   const FeedPage({Key? key}) : super(key: key);
@@ -397,6 +398,17 @@ class _FeedPageState extends State<FeedPage> {
               Text('Description: ${mealData['description']}'),
               SizedBox(height: 4),
               Text('Nutrition: ${mealData['nutrition']}'),
+              SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => RecipePage(mealName: mealData['name']),
+                    ),
+                  );
+                },
+                child: Text('View Recipe'),
+              ),
             ] else
               Text('Loading...'),
           ],
