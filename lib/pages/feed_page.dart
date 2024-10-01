@@ -32,6 +32,7 @@ class _FeedPageState extends State<FeedPage> {
     'proteins': 0,
   };
   late DateTime _lastResetDate;
+  late Future<Map<String, dynamic>> _mealRecommendationsFuture;
 
   // Adjust these values to match your model's expected input
   final int inputSize = 224;
@@ -43,6 +44,7 @@ class _FeedPageState extends State<FeedPage> {
     super.initState();
     _loadModel();
     _loadDailyNutrients();
+    _mealRecommendationsFuture = _getMealRecommendations();
   }
 
   Future<void> _loadModel() async {
@@ -352,76 +354,73 @@ class _FeedPageState extends State<FeedPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('News Feed'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => SettingsPage()),
-              );
-            },
-          ),
-        ],
-      ),
-      body: ListView(
-        children: [
-          NutrientGoalStatusWidget(),  // Add this line
-          _buildDailyNutrientsCard(),
-          _buildNewsItem(),
-          _buildNewsItem(),
-          // Add more news items as needed
-          if (_classificationResult.isNotEmpty)
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                _classificationResult,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showImageSourceDialog,
-        child: Icon(Icons.camera_alt),
-        tooltip: 'Take a photo of your meal',
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.feed),
-            label: 'Feed',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.post_add),
-            label: 'Post',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
-        currentIndex: 0, // Set to 0 for Feed
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              // Already on Feed page, no action needed
-              break;
-            case 1:
-              _showImageSourceDialog();
-              break;
-            case 2:
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => SettingsPage()),
-              );
-              break;
-          }
+  Future<Map<String, dynamic>> _getMealRecommendations() async {
+    final nutritionBloc = BlocProvider.of<NutritionBloc>(context);
+    final nutritionState = nutritionBloc.state;
+    final goals = nutritionState.nutritionGoals;
+
+    try {
+      final response = await supabase.functions.invoke(
+        'meal_recommendations',
+        body: {
+          'dailyCalories': goals.caloriesGoal.round(),
+          'dailyProtein': goals.proteinGoal.round(),
+          'dailyFat': goals.fatGoal.round(),
+          'dailyCarbs': goals.carbsGoal.round(),
         },
+      );
+
+      if (response.status != 200) {
+        throw Exception('Failed to get meal recommendations: ${response.data}');
+      }
+
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Error getting meal recommendations: $e');
+      rethrow;
+    }
+  }
+
+  Widget _buildMealCard(String mealType, Map<String, dynamic>? mealData) {
+    return Card(
+      margin: EdgeInsets.all(8.0),
+      child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(mealType.toUpperCase(), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            if (mealData != null) ...[
+              Text('Name: ${mealData['name']}', style: TextStyle(fontWeight: FontWeight.bold)),
+              SizedBox(height: 4),
+              Text('Description: ${mealData['description']}'),
+              SizedBox(height: 4),
+              Text('Nutrition: ${mealData['nutrition']}'),
+            ] else
+              Text('Loading...'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDailyNutrientsCard() {
+    return Card(
+      margin: EdgeInsets.all(8.0),
+      child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Daily Nutrient Totals', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text('Calories so far: ${_dailyNutrients['calories']}'),
+            Text('Fat so far: ${_dailyNutrients['fat']}'),
+            Text('Carbs so far: ${_dailyNutrients['carbs']}'),
+            Text('Proteins so far: ${_dailyNutrients['proteins']}'),
+          ],
+        ),
       ),
     );
   }
@@ -466,22 +465,122 @@ class _FeedPageState extends State<FeedPage> {
     );
   }
 
-  Widget _buildDailyNutrientsCard() {
-    return Card(
-      margin: EdgeInsets.all(8.0),
-      child: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Daily Nutrient Totals', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            SizedBox(height: 8),
-            Text('Calories so far: ${_dailyNutrients['calories']}'),
-            Text('Fat so far: ${_dailyNutrients['fat']}'),
-            Text('Carbs so far: ${_dailyNutrients['carbs']}'),
-            Text('Proteins so far: ${_dailyNutrients['proteins']}'),
-          ],
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('At a Glance'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () {
+              setState(() {
+                _mealRecommendationsFuture = _getMealRecommendations();
+              });
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => SettingsPage()),
+              );
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        physics: AlwaysScrollableScrollPhysics(),
+        child: Padding(
+          padding: EdgeInsets.all(8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              NutrientGoalStatusWidget(),
+              _buildDailyNutrientsCard(),
+              if (_classificationResult.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16.0),
+                  child: Text(
+                    _classificationResult,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(8.0, 16.0, 8.0, 8.0),  // Added left padding
+                child: Text(
+                  'Meal Recommendations', 
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)
+                ),
+              ),
+              FutureBuilder<Map<String, dynamic>>(
+                future: _mealRecommendationsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Column(
+                      children: [
+                        _buildMealCard('Breakfast', null),
+                        _buildMealCard('Lunch', null),
+                        _buildMealCard('Dinner', null),
+                      ],
+                    );
+                  } else if (snapshot.hasError) {
+                    return Text('Error: ${snapshot.error}');
+                  } else if (snapshot.hasData) {
+                    final recommendations = snapshot.data!;
+                    return Column(
+                      children: [
+                        _buildMealCard('Breakfast', recommendations['breakfast']),
+                        _buildMealCard('Lunch', recommendations['lunch']),
+                        _buildMealCard('Dinner', recommendations['dinner']),
+                      ],
+                    );
+                  } else {
+                    return Text('No data available');
+                  }
+                },
+              ),
+            ],
+          ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showImageSourceDialog,
+        child: Icon(Icons.camera_alt),
+        tooltip: 'Take a photo of your meal',
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.feed),
+            label: 'Feed',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.post_add),
+            label: 'Post',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+        ],
+        currentIndex: 0, // Set to 0 for Feed
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              // Already on Feed page, no action needed
+              break;
+            case 1:
+              _showImageSourceDialog();
+              break;
+            case 2:
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => SettingsPage()),
+              );
+              break;
+          }
+        },
       ),
     );
   }
