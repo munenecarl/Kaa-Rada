@@ -7,6 +7,9 @@ import 'dart:io';
 import 'settings_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../bloc/nutrition/nutrition_bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/nutrition/nutrition_state.dart';
 
 class FeedPage extends StatefulWidget {
   const FeedPage({Key? key}) : super(key: key);
@@ -367,6 +370,7 @@ class _FeedPageState extends State<FeedPage> {
       ),
       body: ListView(
         children: [
+          NutrientGoalStatusWidget(),  // Add this line
           _buildDailyNutrientsCard(),
           _buildNewsItem(),
           _buildNewsItem(),
@@ -479,6 +483,60 @@ class _FeedPageState extends State<FeedPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class NutrientGoalStatusWidget extends StatelessWidget {
+  const NutrientGoalStatusWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<NutritionBloc, NutritionState>(
+      builder: (context, nutritionState) {
+        return Card(
+          margin: EdgeInsets.all(8.0),
+          child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Daily Nutrient Goal Status', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(height: 16),
+                _buildNutrientProgressRow('Calories', nutritionState.dailyNutrition.calories, nutritionState.nutritionGoals.caloriesGoal, nutritionState.caloriesPercentage),
+                SizedBox(height: 8),
+                _buildNutrientProgressRow('Protein', nutritionState.dailyNutrition.protein, nutritionState.nutritionGoals.proteinGoal, nutritionState.proteinPercentage),
+                SizedBox(height: 8),
+                _buildNutrientProgressRow('Fat', nutritionState.dailyNutrition.fat, nutritionState.nutritionGoals.fatGoal, nutritionState.fatPercentage),
+                SizedBox(height: 8),
+                _buildNutrientProgressRow('Carbs', nutritionState.dailyNutrition.carbs, nutritionState.nutritionGoals.carbsGoal, nutritionState.carbsPercentage),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildNutrientProgressRow(String nutrient, double current, double goal, double percentage) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(nutrient),
+        Text('${current.round()} / ${goal.round()}'),
+        SizedBox(width: 8),
+        Text('${percentage.toStringAsFixed(1)}%'),
+        SizedBox(width: 8),
+        Expanded(
+          child: LinearProgressIndicator(
+            value: percentage / 100,
+            backgroundColor: Colors.grey[300],
+            valueColor: AlwaysStoppedAnimation<Color>(
+              percentage > 100 ? Colors.red : Colors.green,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

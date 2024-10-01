@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'bloc/auth/auth_bloc.dart';
 import 'bloc/auth/auth_event.dart';
 import 'bloc/auth/auth_state.dart' as app_auth_state;
+import 'bloc/nutrition/nutrition_bloc.dart';  // Add this import
 import 'pages/login_page.dart';
 import 'pages/feed_page.dart';
 import 'services/supabase_auth_service.dart';
@@ -29,14 +30,21 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) {
-        final authBloc = AuthBloc(
-          SupabaseAuthService(Supabase.instance.client),
-        );
-        authBloc.add(CheckAuthStatus()); // Check auth status when app starts
-        return authBloc;
-      },
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) {
+            final authBloc = AuthBloc(
+              SupabaseAuthService(Supabase.instance.client),
+            );
+            authBloc.add(CheckAuthStatus());
+            return authBloc;
+          },
+        ),
+        BlocProvider(
+          create: (context) => NutritionBloc(),  // Add this provider
+        ),
+      ],
       child: MaterialApp(
         title: 'Kaa Rada',
         theme: ThemeData(
