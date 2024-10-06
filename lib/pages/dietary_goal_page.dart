@@ -14,6 +14,10 @@ class _DietaryGoalPageState extends State<DietaryGoalsPage> {
   final _formKey = GlobalKey<FormState>();
   final _supabase = Supabase.instance.client;
   late String _goal;
+  late int _age;
+  late double _height;
+  late String _gender;
+  final List<String> _genderOptions = ['Male', 'Female', 'Other'];
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
@@ -25,7 +29,7 @@ class _DietaryGoalPageState extends State<DietaryGoalsPage> {
           throw Exception('User ID not found in secure storage');
         }
         print('Attempting to calculate weekly goals for user: $userId');
-        print('Goal: $_goal');
+        print('Goal: $_goal, Age: $_age, Height: $_height, Gender: $_gender');
 
         // Call the edge function to calculate weekly goals
         final response = await _supabase.functions.invoke(
@@ -33,6 +37,9 @@ class _DietaryGoalPageState extends State<DietaryGoalsPage> {
           body: {
             'userId': userId,
             'dietaryGoal': _goal,
+            'age': _age,
+            'height': _height,
+            'gender': _gender,
           },
         );
 
@@ -61,6 +68,9 @@ class _DietaryGoalPageState extends State<DietaryGoalsPage> {
         await prefs.setInt('weekly_carbs', weeklyCarbs);
         await prefs.setInt('weekly_fat', weeklyFat);
         await prefs.setString('dietary_goal', _goal);
+        await prefs.setInt('age', _age);
+        await prefs.setDouble('height', _height);
+        await prefs.setString('gender', _gender);
 
         print('Weekly goals stored in SharedPreferences');
 
@@ -96,8 +106,7 @@ class _DietaryGoalPageState extends State<DietaryGoalsPage> {
         key: _formKey,
         child: Padding(
           padding: EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: ListView(
             children: <Widget>[
               TextFormField(
                 decoration: InputDecoration(labelText: 'Your Dietary Goal'),
@@ -109,6 +118,61 @@ class _DietaryGoalPageState extends State<DietaryGoalsPage> {
                 },
                 onSaved: (value) {
                   _goal = value!;
+                },
+              ),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Your Age'),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your age';
+                  }
+                  if (int.tryParse(value) == null) {
+                    return 'Please enter a valid number';
+                  }
+                  return null;
+                },
+                onSaved: (value) {
+                  _age = int.parse(value!);
+                },
+              ),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Your Height (cm)'),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your height';
+                  }
+                  if (double.tryParse(value) == null) {
+                    return 'Please enter a valid number';
+                  }
+                  return null;
+                },
+                onSaved: (value) {
+                  _height = double.parse(value!);
+                },
+              ),
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(labelText: 'Your Gender'),
+                items: _genderOptions.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please select your gender';
+                  }
+                  return null;
+                },
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _gender = newValue!;
+                  });
+                },
+                onSaved: (value) {
+                  _gender = value!;
                 },
               ),
               Padding(
